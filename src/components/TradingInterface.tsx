@@ -278,5 +278,3 @@ export default function TradingInterface({ tokenAddress }: TradingInterfaceProps
     </Card>
   );
 }
-
-export default TradingInterface;
