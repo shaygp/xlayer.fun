@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy:xlayer": "hardhat run scripts/deploy.js --network xlayer",
-    "deploy:testnet": "hardhat run scripts/deploy.js --network xlayer-testnet",
+    "deploy:xlayer": "hardhat run scripts/deployAndConfigure.js --network xlayer",
+    "deploy:testnet": "hardhat run scripts/deployAndConfigure.js --network xlayer-testnet",
     "deploy:modular": "hardhat run scripts/deployAndConfigure.js",
     "verify": "hardhat verify"
   },
