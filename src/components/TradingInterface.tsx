@@ -1,184 +1,282 @@
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUpDown, Wallet, TrendingUp, AlertTriangle } from "lucide-react";
+import { ArrowUpDown, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePumpFun, useTokenPrice, useTokenInfo, useTokenBalance } from "@/hooks/usePumpFun";
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { Badge } from "@/components/ui/badge";
 
 interface TradingInterfaceProps {
-  tokenSymbol: string;
-  tokenName: string;
-  currentPrice: number;
-  userBalance: number;
-  className?: string;
+  tokenAddress: string;
 }
 
-const TradingInterface = ({
-  tokenSymbol,
-  tokenName,
-  currentPrice,
-  userBalance,
-  className
-}: TradingInterfaceProps) => {
+export default function TradingInterface({ tokenAddress }: TradingInterfaceProps) {
   const { toast } = useToast();
+  const { address } = useAccount();
+  const { buyTokens, sellTokens, approveToken } = usePumpFun();
+  const { tokenInfo, isLoading: tokenInfoLoading } = useTokenInfo(tokenAddress);
+  const { price } = useTokenPrice(tokenAddress);
+  const { balance: tokenBalance } = useTokenBalance(tokenAddress);
+  
   const [activeTab, setActiveTab] = useState("buy");
-  const [amount, setAmount] = useState("");
+  const [okbAmount, setOkbAmount] = useState("");
+  const [tokenAmount, setTokenAmount] = useState("");
   const [isTrading, setIsTrading] = useState(false);
+  const [txHash, setTxHash] = useState("");
+  const [needsApproval, setNeedsApproval] = useState(false);
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash as `0x${string}`,
+  });
 
-  const handleTrade = async () => {
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount",
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleBuy = async () => {
+    if (!okbAmount || !address) return;
 
     setIsTrading(true);
     
-    // Simulate trading
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: `${activeTab === 'buy' ? 'Purchase' : 'Sale'} Successful`,
-      description: `${activeTab === 'buy' ? 'Bought' : 'Sold'} ${amount} ${tokenSymbol}`,
-    });
-    
-    setAmount("");
-    setIsTrading(false);
+    try {
+      const hash = await buyTokens(tokenAddress, okbAmount);
+      setTxHash(hash);
+      
+      toast({
+        title: "Purchase Initiated",
+        description: "Waiting for transaction confirmation...",
+      });
+      
+    } catch (error: any) {
+      console.error("Buy error:", error);
+      toast({
+        title: "Purchase Failed",
+        description: error?.message || "Failed to buy tokens",
+        variant: "destructive"
+      });
+      setIsTrading(false);
+    }
   };
 
-  const estimatedOutput = parseFloat(amount || "0") * currentPrice;
-  const fee = estimatedOutput * 0.003; // 0.3% fee
-  const finalAmount = activeTab === "buy" ? estimatedOutput - fee : estimatedOutput + fee;
+  const handleSell = async () => {
+    if (!tokenAmount || !address) return;
+
+    setIsTrading(true);
+    
+    try {
+      if (needsApproval) {
+        const approveHash = await approveToken(tokenAddress, tokenAmount);
+        setTxHash(approveHash);
+        toast({
+          title: "Approval Initiated",
+          description: "Approving tokens for sale...",
+        });
+        return;
+      }
+      
+      const hash = await sellTokens(tokenAddress, tokenAmount);
+      setTxHash(hash);
+      
+      toast({
+        title: "Sale Initiated",
+        description: "Waiting for transaction confirmation...",
+      });
+      
+    } catch (error: any) {
+      console.error("Sell error:", error);
+      toast({
+        title: "Sale Failed",
+        description: error?.message || "Failed to sell tokens",
+        variant: "destructive"
+      });
+      setIsTrading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuccess) {
+      setIsTrading(false);
+      setTxHash("");
+      setOkbAmount("");
+      setTokenAmount("");
+      
+      toast({
+        title: "Transaction Successful!",
+        description: activeTab === "buy" ? "Tokens purchased successfully" : "Tokens sold successfully",
+      });
+    }
+  }, [isSuccess, activeTab, toast]);
+
+  if (tokenInfoLoading) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span className="ml-2">Loading token info...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!tokenInfo) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="p-6">
+          <p className="text-center text-muted-foreground">Token not found</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const progressToGraduation = tokenInfo.graduatedToDeX ? 
+    100 : 
+    (parseFloat(tokenInfo.okbRaised) / 80) * 100;
 
   return (
-    <Card className={`bg-xlayer-card border-xlayer-border p-6 ${className}`}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">Trade {tokenSymbol}</h3>
-            <p className="text-sm text-muted-foreground">{tokenName}</p>
-          </div>
-          <Badge variant="secondary" className="bg-primary/20 text-primary">
-            Live Trading
-          </Badge>
-        </div>
-
-        {/* Price Info */}
-        <div className="bg-xlayer-gradient rounded-lg p-4 border border-xlayer-border">
-          <div className="flex items-center justify-between">
+    <Card className="bg-card border-border">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <img 
+              src={tokenInfo.imageUri || "https://via.placeholder.com/40"} 
+              alt={tokenInfo.name}
+              className="w-10 h-10 rounded-full"
+            />
             <div>
-              <p className="text-sm text-muted-foreground">Current Price</p>
-              <p className="text-xl font-bold text-foreground">{currentPrice.toFixed(6)} OKB</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Your Balance</p>
-              <p className="text-lg font-semibold text-primary">{userBalance.toFixed(4)} OKB</p>
+              <h3 className="font-bold">{tokenInfo.name}</h3>
+              <p className="text-sm text-muted-foreground">${tokenInfo.symbol}</p>
             </div>
           </div>
-        </div>
-
-        {/* Trading Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 bg-xlayer-hover">
-            <TabsTrigger value="buy" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Buy {tokenSymbol}
-            </TabsTrigger>
-            <TabsTrigger value="sell" className="data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
-              Sell {tokenSymbol}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="buy" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="buy-amount">Amount (OKB)</Label>
-              <Input
-                id="buy-amount"
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="bg-xlayer-hover border-xlayer-border focus:border-primary"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">You'll receive approximately:</span>
-            </div>
-            
-            <div className="bg-xlayer-hover rounded-lg p-3">
-              <p className="text-lg font-semibold text-foreground">
-                {(parseFloat(amount || "0") / currentPrice).toFixed(2)} {tokenSymbol}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Fee: {fee.toFixed(6)} OKB (0.3%)
-              </p>
-            </div>
-
-            <Button
-              onClick={handleTrade}
-              disabled={isTrading || !amount}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {isTrading ? "Processing..." : `Buy ${tokenSymbol}`}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="sell" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sell-amount">Amount ({tokenSymbol})</Label>
-              <Input
-                id="sell-amount"
-                type="number"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="bg-xlayer-hover border-xlayer-border focus:border-destructive"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">You'll receive approximately:</span>
-            </div>
-            
-            <div className="bg-xlayer-hover rounded-lg p-3">
-              <p className="text-lg font-semibold text-foreground">
-                {finalAmount.toFixed(6)} OKB
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Fee: {fee.toFixed(6)} OKB (0.3%)
-              </p>
-            </div>
-
-            <Button
-              onClick={handleTrade}
-              disabled={isTrading || !amount}
-              className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-            >
-              {isTrading ? "Processing..." : `Sell ${tokenSymbol}`}
-            </Button>
-          </TabsContent>
-        </Tabs>
-
-        {/* Warning */}
-        <div className="flex items-start space-x-3 p-3 bg-xlayer-hover rounded-lg border border-xlayer-border">
-          <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-          <div className="text-xs text-muted-foreground">
-            <p className="font-medium text-foreground mb-1">Trading Notice</p>
-            <p>Prices are determined by the bonding curve. Large trades may cause significant price impact.</p>
+          <div className="text-right">
+            <p className="font-bold text-lg">{parseFloat(price).toFixed(8)} OKB</p>
+            <p className="text-xs text-muted-foreground">per token</p>
           </div>
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Progress to DEX</span>
+            <span>{tokenInfo.graduatedToDeX ? "Graduated! 🎉" : `${tokenInfo.okbRaised}/80 OKB`}</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div 
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(progressToGraduation, 100)}%` }}
+            />
+          </div>
+          {tokenInfo.graduatedToDeX && (
+            <p className="text-xs text-muted-foreground">
+              This token has graduated to QuickSwap DEX! 36 OKB locked permanently.
+            </p>
+          )}
         </div>
-      </div>
+
+        {!tokenInfo.graduatedToDeX && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="buy" className="flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>Buy</span>
+              </TabsTrigger>
+              <TabsTrigger value="sell" className="flex items-center space-x-2">
+                <TrendingDown className="w-4 h-4" />
+                <span>Sell</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="buy" className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">OKB Amount</label>
+                <Input
+                  type="number"
+                  placeholder="0.01"
+                  value={okbAmount}
+                  onChange={(e) => setOkbAmount(e.target.value)}
+                  disabled={isTrading || isConfirming}
+                />
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="flex justify-between text-sm">
+                  <span>You will receive:</span>
+                  <span className="font-medium">
+                    ~{okbAmount ? (parseFloat(okbAmount) / parseFloat(price)).toFixed(2) : "0"} {tokenInfo.symbol}
+                  </span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleBuy}
+                disabled={!okbAmount || isTrading || isConfirming || !address}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                {isTrading || isConfirming ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isConfirming ? "Confirming..." : "Buying..."}
+                  </>
+                ) : (
+                  `Buy ${tokenInfo.symbol}`
+                )}
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="sell" className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <label className="text-sm font-medium">Token Amount</label>
+                  <button 
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setTokenAmount(tokenBalance)}
+                  >
+                    Max: {parseFloat(tokenBalance).toFixed(2)} {tokenInfo.symbol}
+                  </button>
+                </div>
+                <Input
+                  type="number"
+                  placeholder="100"
+                  value={tokenAmount}
+                  onChange={(e) => setTokenAmount(e.target.value)}
+                  disabled={isTrading || isConfirming}
+                />
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="flex justify-between text-sm">
+                  <span>You will receive:</span>
+                  <span className="font-medium">
+                    ~{tokenAmount ? (parseFloat(tokenAmount) * parseFloat(price)).toFixed(6) : "0"} OKB
+                  </span>
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleSell}
+                disabled={!tokenAmount || isTrading || isConfirming || !address || parseFloat(tokenBalance) === 0}
+                className="w-full bg-red-600 hover:bg-red-700"
+              >
+                {isTrading || isConfirming ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {isConfirming ? "Confirming..." : needsApproval ? "Approving..." : "Selling..."}
+                  </>
+                ) : (
+                  `Sell ${tokenInfo.symbol}`
+                )}
+              </Button>
+            </TabsContent>
+          </Tabs>
+        )}
+
+        <div className="text-center text-xs text-muted-foreground">
+          <p>Platform Fee: 1% | Creator Fee: 1%</p>
+        </div>
+      </CardContent>
     </Card>
   );
-};
+}
 
 export default TradingInterface;

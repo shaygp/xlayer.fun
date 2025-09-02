@@ -9,19 +9,6 @@ import xlayerLogo from "@/assets/xlayer-logo.svg";
 
 const Header = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
-  const [okbBalance] = useState(127.4583);
-
-  const handleWalletConnect = (address: string) => {
-    setIsWalletConnected(true);
-    setWalletAddress(address);
-  };
-
-  const handleWalletDisconnect = () => {
-    setIsWalletConnected(false);
-    setWalletAddress("");
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-xlayer-border bg-xlayer-bg/80 backdrop-blur-md">
@@ -64,13 +51,7 @@ const Header = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center space-x-3">
-          <WalletConnection
-            isConnected={isWalletConnected}
-            onConnect={handleWalletConnect}
-            onDisconnect={handleWalletDisconnect}
-            address={walletAddress}
-            okbBalance={okbBalance}
-          />
+          <WalletConnection />
           <Button 
             onClick={() => setShowCreateModal(true)}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"

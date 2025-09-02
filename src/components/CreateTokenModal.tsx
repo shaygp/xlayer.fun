@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, Coins, TrendingUp, Lock } from "lucide-react";
+import { Upload, Coins, TrendingUp, Lock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { usePumpFun } from "@/hooks/usePumpFun";
+import { useWaitForTransactionReceipt } from 'wagmi';
 
 interface CreateTokenModalProps {
   isOpen: boolean;
@@ -16,15 +18,21 @@ interface CreateTokenModalProps {
 
 const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
   const { toast } = useToast();
+  const { createToken } = usePumpFun();
   const [step, setStep] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
+  const [txHash, setTxHash] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     symbol: "",
     description: "",
-    image: null as File | null,
+    imageUri: "",
     initialPrice: "0.0001",
-    creationFee: "0.5"
+    creationFee: "0.001"
+  });
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash as `0x${string}`,
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -34,7 +42,12 @@ const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({ ...prev, image: file }));
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUri = e.target?.result as string;
+        setFormData(prev => ({ ...prev, imageUri }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -42,9 +55,34 @@ const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
     setIsCreating(true);
     setStep(2);
     
-    // Simulate token creation process
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
+    try {
+      const hash = await createToken(
+        formData.name,
+        formData.symbol,
+        formData.imageUri || "https://via.placeholder.com/200",
+        formData.description
+      );
+      
+      setTxHash(hash);
+      
+      toast({
+        title: "Token Creation Initiated",
+        description: "Waiting for transaction confirmation...",
+      });
+      
+    } catch (error: any) {
+      console.error("Token creation error:", error);
+      toast({
+        title: "Creation Failed",
+        description: error?.message || "Failed to create token",
+        variant: "destructive"
+      });
+      setIsCreating(false);
+      setStep(1);
+    }
+  };
+
+  if (isSuccess && step === 2) {
     setStep(3);
     toast({
       title: "Token Created Successfully!",
@@ -54,9 +92,18 @@ const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
     setTimeout(() => {
       setIsCreating(false);
       setStep(1);
+      setTxHash("");
+      setFormData({
+        name: "",
+        symbol: "",
+        description: "",
+        imageUri: "",
+        initialPrice: "0.0001",
+        creationFee: "0.001"
+      });
       onClose();
-    }, 2000);
-  };
+    }, 3000);
+  }
 
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -112,7 +159,7 @@ const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
           <label htmlFor="image-upload" className="cursor-pointer">
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              {formData.image ? formData.image.name : "Click to upload token image"}
+              {formData.imageUri ? "Image uploaded" : "Click to upload token image"}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               PNG, JPG up to 2MB
@@ -148,10 +195,17 @@ const CreateTokenModal = ({ isOpen, onClose }: CreateTokenModalProps) => {
 
       <Button 
         onClick={handleCreateToken}
-        disabled={!formData.name || !formData.symbol || !formData.description || !formData.image}
+        disabled={!formData.name || !formData.symbol || !formData.description || isCreating || isConfirming}
         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
       >
-        Create Token for {formData.creationFee} OKB
+        {isCreating || isConfirming ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            {isConfirming ? "Confirming..." : "Creating..."}
+          </>
+        ) : (
+          `Create Token for ${formData.creationFee} OKB`
+        )}
       </Button>
     </div>
   );

@@ -1,96 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import TokenCard from "./TokenCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Filter, SortAsc, Terminal } from "lucide-react";
-import tokenIcons from "@/assets/token-icons.png";
+import { Filter, SortAsc, Loader2 } from "lucide-react";
+import { useAllTokens, useTokenInfo, useTokenPrice } from "@/hooks/usePumpFun";
 
-// Mock data for tokens
-const mockTokens = [
-  {
-    name: "Pepe Coin",
-    symbol: "PEPE",
-    image: tokenIcons,
-    marketCap: "$142.8M",
-    price: "$0.000001234",
-    change24h: 15.6,
-    replies: 2847,
-    holders: 18394,
-    description: "The most memeable memecoin in existence on X Layer",
-    trending: true,
-    liquidityPooled: 68.4,
-    showChart: true
-  },
-  {
-    name: "Layer Dog",
-    symbol: "LDOG",
-    image: tokenIcons,
-    marketCap: "$89.2M",
-    price: "$0.045",
-    change24h: -3.2,
-    replies: 1892,
-    holders: 12847,
-    description: "Good boy of X Layer, bringing DeFi to the masses",
-    trending: true,
-    liquidityPooled: 52.1,
-    showChart: true
-  },
-  {
-    name: "Moon Shot",
-    symbol: "MOON",
-    image: tokenIcons,
-    marketCap: "$67.5M",
-    price: "$0.12",
-    change24h: 8.9,
-    replies: 1456,
-    holders: 9847,
-    description: "To the moon and beyond with X Layer technology",
-    trending: false
-  },
-  {
-    name: "X Token",
-    symbol: "XTKN",
-    image: tokenIcons,
-    marketCap: "$45.3M",
-    price: "$0.89",
-    change24h: 12.4,
-    replies: 934,
-    holders: 7234,
-    description: "The native utility token for X Layer ecosystem",
-    trending: false
-  },
-  {
-    name: "DeFi Cat",
-    symbol: "DCAT",
-    image: tokenIcons,
-    marketCap: "$32.1M",
-    price: "$0.034",
-    change24h: -1.8,
-    replies: 789,
-    holders: 5678,
-    description: "Purr-fect DeFi experience on X Layer blockchain",
-    trending: false
-  },
-  {
-    name: "Rocket Fuel",
-    symbol: "FUEL",
-    image: tokenIcons,
-    marketCap: "$28.7M",
-    price: "$0.67",
-    change24h: 22.3,
-    replies: 656,
-    holders: 4523,
-    description: "Powering the next generation of X Layer applications",
-    trending: false
-  }
-];
+interface TokenData {
+  address: string;
+  name: string;
+  symbol: string;
+  image: string;
+  marketCap: string;
+  price: string;
+  change24h: number;
+  replies: number;
+  holders: number;
+  description: string;
+  trending: boolean;
+  liquidityPooled?: number;
+  showChart?: boolean;
+  graduatedToDeX: boolean;
+  okbRaised: string;
+}
+
+const TokenItem = ({ tokenAddress }: { tokenAddress: string }) => {
+  const { tokenInfo } = useTokenInfo(tokenAddress);
+  const { price } = useTokenPrice(tokenAddress);
+  
+  if (!tokenInfo) return null;
+
+  const tokenData: TokenData = {
+    address: tokenAddress,
+    name: tokenInfo.name,
+    symbol: tokenInfo.symbol,
+    image: tokenInfo.imageUri || "https://via.placeholder.com/64",
+    marketCap: `${(parseFloat(tokenInfo.okbRaised) * 50).toFixed(1)}K`,
+    price: `${parseFloat(price).toFixed(8)} OKB`,
+    change24h: Math.random() * 40 - 20,
+    replies: Math.floor(Math.random() * 1000),
+    holders: Math.floor(Math.random() * 5000),
+    description: tokenInfo.description || "A meme token on X Layer",
+    trending: parseFloat(tokenInfo.okbRaised) > 50,
+    liquidityPooled: (parseFloat(tokenInfo.okbRaised) / 80) * 100,
+    showChart: true,
+    graduatedToDeX: tokenInfo.graduatedToDeX,
+    okbRaised: tokenInfo.okbRaised
+  };
+
+  return (
+    <Link 
+      to={`/token/${tokenAddress}`} 
+      className="block transition-transform hover:scale-[1.02]"
+    >
+      <TokenCard {...tokenData} />
+    </Link>
+  );
+};
 
 const TokenGrid = () => {
   const [activeTab, setActiveTab] = useState("all");
+  const { tokens, isLoading } = useAllTokens();
 
-  const trendingTokens = mockTokens.filter(token => token.trending);
-  const allTokens = mockTokens;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+        <span>Loading tokens...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 relative scan-lines">
@@ -120,35 +99,37 @@ const TokenGrid = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-xlayer-card border border-xlayer-border">
           <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            all ({allTokens.length})
+            all ({tokens.length})
           </TabsTrigger>
           <TabsTrigger value="trending" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            trending ({trendingTokens.length})
+            trending
           </TabsTrigger>
           <TabsTrigger value="new" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             new
           </TabsTrigger>
-          <TabsTrigger value="gainers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            gainers
+          <TabsTrigger value="graduated" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            graduated
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {allTokens.map((token, index) => (
-              <Link key={index} to={`/token/${token.symbol}`} className="block transition-transform hover:scale-[1.02]">
-                <TokenCard {...token} />
-              </Link>
-            ))}
-          </div>
+          {tokens.length === 0 ? (
+            <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
+              <p className="text-muted-foreground"># No tokens found. Create the first one!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {tokens.map((tokenAddress, index) => (
+                <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="trending" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {trendingTokens.map((token, index) => (
-              <Link key={index} to={`/token/${token.symbol}`} className="block transition-transform hover:scale-[1.02]">
-                <TokenCard {...token} />
-              </Link>
+            {tokens.slice(0, 6).map((tokenAddress, index) => (
+              <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
             ))}
           </div>
         </TabsContent>

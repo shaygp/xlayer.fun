@@ -4,56 +4,43 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Wallet, ExternalLink, Copy, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
+import { injected, metaMask } from 'wagmi/connectors';
 
-interface WalletConnectionProps {
-  isConnected: boolean;
-  onConnect: (address: string) => void;
-  onDisconnect: () => void;
-  address?: string;
-  okbBalance?: number;
-}
+interface WalletConnectionProps {}
 
-const WalletConnection = ({ 
-  isConnected, 
-  onConnect, 
-  onDisconnect, 
-  address = "",
-  okbBalance = 0 
-}: WalletConnectionProps) => {
+const WalletConnection = ({}: WalletConnectionProps) => {
   const { toast } = useToast();
   const [showModal, setShowModal] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, isPending } = useConnect();
+  const { disconnect } = useDisconnect();
+  
+  const { data: balance } = useBalance({
+    address,
+  });
 
   const wallets = [
     {
-      name: "OKX Wallet",
+      name: "Injected Wallet",
       icon: "🟡",
-      description: "Recommended for X Layer",
-      preferred: true
+      description: "OKX Wallet or Browser Extension",
+      preferred: true,
+      connector: injected()
     },
     {
       name: "MetaMask",
       icon: "🦊",
       description: "Popular Web3 wallet",
-      preferred: false
-    },
-    {
-      name: "WalletConnect",
-      icon: "🔗",
-      description: "Connect mobile wallets",
-      preferred: false
+      preferred: false,
+      connector: metaMask()
     }
   ];
 
-  const handleWalletConnect = async (walletName: string) => {
-    setIsConnecting(true);
-    
+  const handleWalletConnect = async (connector: any, walletName: string) => {
     try {
-      // Simulate wallet connection
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockAddress = "0x1234567890123456789012345678901234567890";
-      onConnect(mockAddress);
+      connect({ connector });
       setShowModal(false);
       
       toast({
@@ -66,21 +53,21 @@ const WalletConnection = ({
         description: "Failed to connect wallet. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsConnecting(false);
     }
   };
 
   const handleCopyAddress = () => {
-    navigator.clipboard.writeText(address);
-    toast({
-      title: "Address Copied",
-      description: "Wallet address copied to clipboard",
-    });
+    if (address) {
+      navigator.clipboard.writeText(address);
+      toast({
+        title: "Address Copied",
+        description: "Wallet address copied to clipboard",
+      });
+    }
   };
 
   const handleDisconnect = () => {
-    onDisconnect();
+    disconnect();
     toast({
       title: "Wallet Disconnected",
       description: "Your wallet has been disconnected",
@@ -91,11 +78,13 @@ const WalletConnection = ({
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  if (isConnected) {
+  if (isConnected && address) {
     return (
       <div className="flex items-center space-x-3">
         <div className="hidden sm:block text-right">
-          <p className="text-sm font-medium text-foreground">{okbBalance.toFixed(4)} OKB</p>
+          <p className="text-sm font-medium text-foreground">
+            {balance ? `${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}` : '0.0000 OKB'}
+          </p>
           <p className="text-xs text-muted-foreground">{formatAddress(address)}</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -151,8 +140,8 @@ const WalletConnection = ({
                   key={wallet.name}
                   variant="outline"
                   className="w-full justify-start p-4 h-auto border-xlayer-border hover:bg-xlayer-hover hover:border-primary/50 transition-all"
-                  onClick={() => handleWalletConnect(wallet.name)}
-                  disabled={isConnecting}
+                  onClick={() => handleWalletConnect(wallet.connector, wallet.name)}
+                  disabled={isPending}
                 >
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl">{wallet.icon}</span>

@@ -11,22 +11,11 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import tokenIcons from "@/assets/token-icons.png";
 
 const TokenDetail = () => {
-  const { symbol } = useParams();
+  const { tokenAddress } = useParams();
   
-  // Mock token data
-  const token = {
-    name: "Pepe Coin",
-    symbol: "PEPE",
-    image: tokenIcons,
-    description: "The most memeable memecoin in existence on X Layer. Born from internet culture, raised by the community.",
-    marketCap: "$142.8M",
-    price: "0.000001234",
-    change24h: 15.6,
-    volume24h: "$24.8M",
-    holders: 18394,
-    liquidityPooled: 68.4,
-    contractAddress: "0x1234567890123456789012345678901234567890"
-  };
+  if (!tokenAddress) {
+    return <div>Token not found</div>;
+  }
 
   return (
     <div className="min-h-screen bg-xlayer-bg text-foreground relative">
@@ -162,12 +151,7 @@ const TokenDetail = () => {
           {/* Right Column - Trading and Activity */}
           <div className="space-y-8">
             {/* Trading Interface */}
-            <TradingInterface
-              tokenSymbol={token.symbol}
-              tokenName={token.name}
-              currentPrice={parseFloat(token.price)}
-              userBalance={127.4583}
-            />
+            <TradingInterface tokenAddress={tokenAddress} />
 
             {/* Activity Feed */}
             <ActivityFeed />
