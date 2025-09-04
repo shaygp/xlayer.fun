@@ -1,6 +1,6 @@
 # X Layer Fun
 
-A pump.fun-style meme token launchpad built for X Layer. Deploy tokens instantly, trade on bonding curves, and graduate to DEX when hitting 80 OKB market cap.
+A pump.fun meme token launchpad built for X Layer. Deploy tokens instantly, trade on bonding curves and graduate to DEX when hitting 80 OKB market cap.
 
 ## Architecture
 
@@ -66,7 +66,7 @@ if (tokenCurves[token].okbCollected >= GRADUATION_THRESHOLD) {
 }
 ```
 
-### Key Hooks
+### Hooks
 ```typescript
 // Contract interaction
 const { createToken, buyTokens, sellTokens } = usePumpFun();
@@ -144,7 +144,7 @@ uint256 public constant DEFAULT_VIRTUAL_OKB = 30 * 10**18;
 uint256 public constant DEFAULT_VIRTUAL_TOKENS = 1_073_000_000 * 10**18;
 ```
 
-## Key Events
+## Events
 
 ```solidity
 event TokenCreated(address indexed token, address indexed creator, string name, string symbol);
