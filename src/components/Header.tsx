@@ -1,14 +1,35 @@
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import WalletConnection from "./WalletConnection";
 import CreateTokenModal from "./CreateTokenModal";
 import { useState } from "react";
-import xlayerLogo from "@/assets/xlayer-logo.svg";
+// Logo will be loaded from public directory
+import { useAllTokens, useTokenInfo } from "@/hooks/usePumpFun";
 
 const Header = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+  const { tokens } = useAllTokens();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    if (searchQuery.startsWith('0x') && searchQuery.length === 42) {
+      navigate(`/token/${searchQuery}`);
+    } else {
+      const matchingToken = tokens?.find(address => {
+        return address.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+      
+      if (matchingToken) {
+        navigate(`/token/${matchingToken}`);
+      }
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-xlayer-border bg-xlayer-bg/80 backdrop-blur-md">
@@ -16,7 +37,7 @@ const Header = () => {
         {/* Logo and Navigation */}
         <div className="flex items-center space-x-8">
           <Link to="/board" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-            <img src={xlayerLogo} alt="X Layer" className="w-8 h-8" />
+            <img src="/logo.svg" alt="X Layer" className="w-8 h-8" />
             <div>
             <h1 className="text-lg font-medium text-primary terminal-cursor">X_LAYER</h1>
             <p className="text-xs text-muted-foreground">token_board.exe</p>
@@ -41,13 +62,15 @@ const Header = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="flex-1 max-w-md mx-8 relative">
+        <form onSubmit={handleSearch} className="flex-1 max-w-md mx-8 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Search tokens..."
+            placeholder="Search tokens or paste address..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-xlayer-card border-xlayer-border focus:border-primary focus:ring-1 focus:ring-primary"
           />
-        </div>
+        </form>
 
         {/* Action Buttons */}
         <div className="flex items-center space-x-3">

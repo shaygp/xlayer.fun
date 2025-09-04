@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,27 +6,88 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { ArrowRight, Terminal, Plus } from "lucide-react";
 import AnimatedBackground from "@/components/AnimatedBackground";
+import { usePumpFun } from "@/hooks/usePumpFun";
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { useToast } from "@/hooks/use-toast";
+import WalletConnection from "@/components/WalletConnection";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { address, isConnected } = useAccount();
+  const { createToken } = usePumpFun();
+  const { toast } = useToast();
   const [tokenData, setTokenData] = useState({
     name: "",
     symbol: "",
-    description: ""
+    description: "",
+    imageUri: ""
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [txHash, setTxHash] = useState("");
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash as `0x${string}`,
+  });
 
   const handleCreate = async () => {
-    if (!tokenData.name || !tokenData.symbol) return;
+    if (!tokenData.name || !tokenData.symbol) {
+      toast({
+        title: "Error",
+        description: "Please fill all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isConnected) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to create tokens",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsCreating(true);
     
-    // Simulate token creation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Redirect to main app
-    navigate('/board');
+    try {
+      const hash = await createToken(
+        tokenData.name,
+        tokenData.symbol,
+        tokenData.imageUri || "https://via.placeholder.com/256",
+        tokenData.description
+      );
+      
+      setTxHash(hash);
+      
+      toast({
+        title: "Token Creation Initiated",
+        description: "Waiting for transaction confirmation...",
+      });
+    } catch (error: any) {
+      console.error("Token creation error:", error);
+      toast({
+        title: "Creation Failed",
+        description: error?.message || "Failed to create token",
+        variant: "destructive"
+      });
+      setIsCreating(false);
+    }
   };
+
+  React.useEffect(() => {
+    if (isSuccess) {
+      setIsCreating(false);
+      toast({
+        title: "Token Created Successfully!",
+        description: "Your token has been deployed on X Layer",
+      });
+      
+      setTimeout(() => {
+        navigate('/board');
+      }, 2000);
+    }
+  }, [isSuccess, navigate, toast]);
 
   const handleEnterBoard = () => {
     navigate('/board');
@@ -38,7 +99,7 @@ const Landing = () => {
       
       <div className="container mx-auto px-4 py-16 relative z-10">
         {/* Terminal Header */}
-        <div className="flex items-center justify-center mb-16">
+        <div className="flex items-center justify-between mb-16">
           <div className="flex items-center space-x-3">
             <Terminal className="w-8 h-8 text-primary" />
             <div>
@@ -46,6 +107,7 @@ const Landing = () => {
               <p className="text-sm text-muted-foreground">create_token_terminal.exe</p>
             </div>
           </div>
+          <WalletConnection />
         </div>
 
         <div className="max-w-2xl mx-auto space-y-8">
@@ -103,6 +165,18 @@ const Landing = () => {
                 
                 <div>
                   <label className="text-sm text-muted-foreground block mb-2">
+                    image_uri (optional):
+                  </label>
+                  <Input
+                    placeholder="https://example.com/image.png"
+                    value={tokenData.imageUri}
+                    onChange={(e) => setTokenData({...tokenData, imageUri: e.target.value})}
+                    className="bg-xlayer-hover border-xlayer-border focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground block mb-2">
                     description:
                   </label>
                   <Textarea
@@ -121,13 +195,17 @@ const Landing = () => {
               <div className="flex items-center space-x-4 pt-4">
                 <Button
                   onClick={handleCreate}
-                  disabled={!tokenData.name || !tokenData.symbol || isCreating}
+                  disabled={!tokenData.name || !tokenData.symbol || isCreating || isConfirming || !isConnected}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center space-x-2"
                 >
-                  {isCreating ? (
+                  {isCreating || isConfirming ? (
                     <>
                       <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
-                      <span>deploying...</span>
+                      <span>{isConfirming ? "confirming..." : "deploying..."}</span>
+                    </>
+                  ) : !isConnected ? (
+                    <>
+                      <span>connect wallet first</span>
                     </>
                   ) : (
                     <>

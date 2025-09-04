@@ -2,11 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, Wallet, Plus, ExternalLink, ArrowLeft } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Plus, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import StatsCards from "@/components/StatsCards";
-import tokenIcons from "@/assets/token-icons.png";
+import { useAccount } from 'wagmi';
+import { useAllTokens, useTokenBalance } from "@/hooks/usePumpFun";
 
 // Define colors for tokens
 const tokenColors = [
@@ -23,7 +24,7 @@ const Portfolio = () => {
     {
       name: "Pepe Coin",
       symbol: "PEPE",
-      image: tokenIcons,
+      image: "/catlayer.svg",
       balance: "1,250,000",
       value: "$2,847.50",
       change24h: 15.6,
@@ -33,7 +34,7 @@ const Portfolio = () => {
     {
       name: "Layer Dog",
       symbol: "LDOG",
-      image: tokenIcons,
+      image: "/catlayer.svg",
       balance: "500,000",
       value: "$1,234.75",
       change24h: -3.2,
@@ -43,7 +44,7 @@ const Portfolio = () => {
     {
       name: "Moon Shot",
       symbol: "MOON",
-      image: tokenIcons,
+      image: "/catlayer.svg",
       balance: "75,000",
       value: "$892.15",
       change24h: 8.9,
@@ -56,7 +57,7 @@ const Portfolio = () => {
     {
       name: "My Token",
       symbol: "MYTKN",
-      image: tokenIcons,
+      image: "/catlayer.svg",
       holders: 234,
       volume24h: "$5,678",
       createdDate: "2024-01-15",
@@ -98,7 +99,7 @@ const Portfolio = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Portfolio Value</p>
-                <p className="text-3xl font-bold text-foreground">${totalValue.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-foreground">$0</p>
               </div>
               <Wallet className="w-8 h-8 text-primary" />
             </div>
@@ -108,16 +109,12 @@ const Portfolio = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total P&L</p>
-                <p className={`text-2xl font-bold ${totalPnL >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                  {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+                <p className={`text-2xl font-bold text-primary`}>
+                  $0.00
                 </p>
               </div>
-              <div className={`p-2 rounded-lg ${totalPnL >= 0 ? 'bg-primary/20' : 'bg-destructive/20'}`}>
-                {totalPnL >= 0 ? (
-                  <TrendingUp className="w-6 h-6 text-primary" />
-                ) : (
-                  <TrendingDown className="w-6 h-6 text-destructive" />
-                )}
+              <div className={`p-2 rounded-lg bg-primary/20`}>
+                <TrendingUp className="w-6 h-6 text-primary" />
               </div>
             </div>
           </Card>
@@ -126,7 +123,7 @@ const Portfolio = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Active Positions</p>
-                <p className="text-2xl font-bold text-foreground">{portfolioTokens.length}</p>
+                <p className="text-2xl font-bold text-foreground">0</p>
               </div>
               <Badge variant="secondary" className="bg-primary/20 text-primary">
                 Live

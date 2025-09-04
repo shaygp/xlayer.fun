@@ -20,8 +20,8 @@ module.exports = {
       gasPrice: 20000000000, // 20 gwei
     },
     "xlayer-testnet": {
-      url: "https://testrpc.xlayer.tech",
-      chainId: 195,
+      url: "https://testrpc.xlayer.tech/terigon",
+      chainId: 1952,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: 20000000000,
     },

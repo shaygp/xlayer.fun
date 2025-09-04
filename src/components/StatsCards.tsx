@@ -5,15 +5,15 @@ const StatsCards = () => {
   const stats = [
     {
       title: "Total Users",
-      value: "18,394",
-      change: "+8.7%",
+      value: "114",
+      change: "+2.1%",
       icon: Users,
       color: "text-xlayer-purple"
     },
     {
-      title: "Market Cap",
-      value: "$892.1M",
-      change: "+15.3%",
+      title: "Testnet Market Cap",
+      value: "8.2K OKB",
+      change: "+5.4%",
       icon: TrendingUp,
       color: "text-primary"
     }

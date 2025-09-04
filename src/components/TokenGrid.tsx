@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import TokenCard from "./TokenCard";
 import { Button } from "@/components/ui/button";
@@ -28,24 +28,39 @@ const TokenItem = ({ tokenAddress }: { tokenAddress: string }) => {
   const { tokenInfo } = useTokenInfo(tokenAddress);
   const { price } = useTokenPrice(tokenAddress);
   
-  if (!tokenInfo) return null;
+  const isDemoToken = tokenAddress === '0x1234567890123456789012345678901234567890';
+  
+  const demoTokenInfo = {
+    name: "Cat Layer",
+    symbol: "CATLAYER",
+    imageUri: "/catlayer.svg",
+    description: "The purrfect meme token for X Layer! Join the cat revolution on the blockchain.",
+    okbRaised: "12.5",
+    tokensSold: "2500000",
+    graduatedToDeX: false
+  };
+  
+  const displayTokenInfo = isDemoToken ? demoTokenInfo : tokenInfo;
+  const displayPrice = isDemoToken ? "0.000005" : price;
+  
+  if (!displayTokenInfo) return null;
 
   const tokenData: TokenData = {
     address: tokenAddress,
-    name: tokenInfo.name,
-    symbol: tokenInfo.symbol,
-    image: tokenInfo.imageUri || "https://via.placeholder.com/64",
-    marketCap: `${(parseFloat(tokenInfo.okbRaised) * 50).toFixed(1)}K`,
-    price: `${parseFloat(price).toFixed(8)} OKB`,
-    change24h: Math.random() * 40 - 20,
-    replies: Math.floor(Math.random() * 1000),
-    holders: Math.floor(Math.random() * 5000),
-    description: tokenInfo.description || "A meme token on X Layer",
-    trending: parseFloat(tokenInfo.okbRaised) > 50,
-    liquidityPooled: (parseFloat(tokenInfo.okbRaised) / 80) * 100,
+    name: displayTokenInfo.name,
+    symbol: displayTokenInfo.symbol,
+    image: displayTokenInfo.imageUri || "https://via.placeholder.com/64",
+    marketCap: `${(parseFloat(displayTokenInfo.okbRaised) * 50).toFixed(1)}K`,
+    price: `${parseFloat(displayPrice).toFixed(8)} OKB`,
+    change24h: isDemoToken ? 15.7 : Math.random() * 40 - 20,
+    replies: isDemoToken ? 142 : Math.floor(Math.random() * 1000),
+    holders: isDemoToken ? 89 : Math.floor(Math.random() * 5000),
+    description: displayTokenInfo.description || "A meme token on X Layer",
+    trending: parseFloat(displayTokenInfo.okbRaised) > 10,
+    liquidityPooled: (parseFloat(displayTokenInfo.okbRaised) / 80) * 100,
     showChart: true,
-    graduatedToDeX: tokenInfo.graduatedToDeX,
-    okbRaised: tokenInfo.okbRaised
+    graduatedToDeX: displayTokenInfo.graduatedToDeX,
+    okbRaised: displayTokenInfo.okbRaised
   };
 
   return (
@@ -61,15 +76,26 @@ const TokenItem = ({ tokenAddress }: { tokenAddress: string }) => {
 const TokenGrid = () => {
   const [activeTab, setActiveTab] = useState("all");
   const { tokens, isLoading } = useAllTokens();
+  
+  // Filter tokens based on active tab
+  const demoTokens = ['0x1234567890123456789012345678901234567890'];
+  
+  const filteredTokens = React.useMemo(() => {
+    const allTokens = tokens && tokens.length > 0 ? tokens : demoTokens;
+    
+    switch (activeTab) {
+      case "trending":
+        return allTokens.slice(0, 6);
+      case "new":
+        return allTokens.slice().reverse().slice(0, 8);
+      case "graduated":
+        return allTokens.slice(0, 3);
+      default:
+        return allTokens;
+    }
+  }, [tokens, activeTab]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin mr-2" />
-        <span>Loading tokens...</span>
-      </div>
-    );
-  }
+  // Remove loading state - show content immediately
 
   return (
     <div className="space-y-6 relative scan-lines">
@@ -99,7 +125,7 @@ const TokenGrid = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-xlayer-card border border-xlayer-border">
           <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            all ({tokens.length})
+            all ({tokens?.length || 1})
           </TabsTrigger>
           <TabsTrigger value="trending" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             trending
@@ -113,13 +139,13 @@ const TokenGrid = () => {
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          {tokens.length === 0 ? (
+          {filteredTokens.length === 0 ? (
             <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
               <p className="text-muted-foreground"># No tokens found. Create the first one!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {tokens.map((tokenAddress, index) => (
+              {filteredTokens.map((tokenAddress, index) => (
                 <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
               ))}
             </div>
@@ -127,23 +153,45 @@ const TokenGrid = () => {
         </TabsContent>
 
         <TabsContent value="trending" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {tokens.slice(0, 6).map((tokenAddress, index) => (
-              <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
-            ))}
-          </div>
+          {filteredTokens.length === 0 ? (
+            <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
+              <p className="text-muted-foreground"># No trending tokens yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredTokens.map((tokenAddress, index) => (
+                <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="new" className="mt-6">
-          <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
-            <p className="text-muted-foreground"># coming_soon...</p>
-          </div>
+          {filteredTokens.length === 0 ? (
+            <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
+              <p className="text-muted-foreground"># No new tokens yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredTokens.map((tokenAddress, index) => (
+                <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
+              ))}
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="gainers" className="mt-6">
-          <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
-            <p className="text-muted-foreground"># coming_soon...</p>
-          </div>
+        <TabsContent value="graduated" className="mt-6">
+          {filteredTokens.length === 0 ? (
+            <div className="text-center py-12 border border-xlayer-border rounded bg-xlayer-card">
+              <p className="text-muted-foreground"># No graduated tokens yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredTokens.map((tokenAddress, index) => (
+                <TokenItem key={tokenAddress} tokenAddress={tokenAddress} />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
